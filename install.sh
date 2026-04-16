@@ -71,6 +71,19 @@ for f in "${REPO}/bootstrap/"*.md; do
   place "$f" "${CLAUDE_HOME}/bootstrap/$(basename "$f")"
 done
 
+# Seed ~/.claude/CLAUDE.md from the global template IF none exists.
+# This ensures the first Claude Code session sees the [BOOT:] placeholders and
+# prompts the user to run /first-boot --global. Never overwrites an existing file.
+GLOBAL_CLAUDE="${CLAUDE_HOME}/CLAUDE.md"
+SEEDED_CLAUDE=false
+if [[ ! -e "$GLOBAL_CLAUDE" ]]; then
+  log "seeding ${GLOBAL_CLAUDE} from global template (so first session prompts for onboarding)"
+  cp "${REPO}/bootstrap/CLAUDE.global.template.md" "$GLOBAL_CLAUDE"
+  SEEDED_CLAUDE=true
+else
+  log "${GLOBAL_CLAUDE} already exists — leaving it alone"
+fi
+
 ok "base install complete"
 
 if [[ -d "$BACKUP_DIR" ]]; then
@@ -128,19 +141,68 @@ print(f"✓ settings.json updated ({settings_path})")
 PYEOF
 
     ok "swat-memory installed and registered"
-    cat <<MSG
-
-Next steps for swat-memory:
-  1. Restart Claude Code (or start a new session) to pick up the new hooks + MCP server.
-  2. (Optional) Migrate existing markdown memory from the current project dir:
-       cd "\$(pwd)"  # a Claude Code project you've been using
-       source "${SWAT_MEMORY_ROOT}/.venv/bin/activate"
-       python -m swat_memory.migrate_markdown --dry-run   # preview
-       python -m swat_memory.migrate_markdown             # real run
-MSG
   fi
 else
   log "skipping swat-memory (--no-memory)"
 fi
 
-ok "done"
+ok "install complete"
+
+# ─── Next steps banner ─────────────────────────────────────────────────────
+cat <<BANNER
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Next steps
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  1. Restart Claude Code (or start a new session) so it picks up the new
+     commands, templates, hooks, and MCP server.
+
+BANNER
+
+if [[ "$SEEDED_CLAUDE" == true ]]; then
+  cat <<BANNER
+  2. On your first session, Claude will notice the placeholders in
+     ~/.claude/CLAUDE.md and offer to run /first-boot --global. Say yes —
+     it's a ~5-minute conversational interview that populates your identity,
+     communication preferences, and environment.
+
+     You can also run it manually any time:
+         /first-boot --global      # interview for ~/.claude/CLAUDE.md
+         /first-boot               # run in a project dir to scaffold ./CLAUDE.md
+
+BANNER
+else
+  cat <<BANNER
+  2. Your existing ~/.claude/CLAUDE.md was preserved. To refresh it with the
+     new onboarding flow, run:
+         /first-boot --global      # augment interactively
+
+     For per-project onboarding, cd into a project and run:
+         /first-boot               # scaffolds ./CLAUDE.md
+
+BANNER
+fi
+
+if [[ "$INSTALL_MEMORY" == true ]]; then
+  cat <<BANNER
+  3. (Optional) Migrate any existing markdown auto-memory from a project
+     you've been using:
+         cd /path/to/your/project
+         source "${SWAT_MEMORY_ROOT}/.venv/bin/activate"
+         python -m swat_memory.migrate_markdown --dry-run   # preview
+         python -m swat_memory.migrate_markdown             # real run
+
+BANNER
+fi
+
+cat <<BANNER
+  Custom commands now available:
+    /plan  /review  /catchup  /document  /debug  /commit
+    /spawn-agent  — open a new Terminal running a directed Claude agent
+    /first-boot   — onboarding interview (global or per-project)
+
+  See: README.md and TOOLING.md in this repo for design notes.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BANNER

@@ -36,11 +36,24 @@ Drive a conversational onboarding interview and produce a populated CLAUDE.md fr
 
 6. **Write the file.** Write the filled template to the target path. If augmenting an existing file, merge carefully — preserve anything the user wrote that wasn't a placeholder.
 
-7. **Report back.** One line: what was written, where, and what got skipped. Offer a follow-up: "Run `/catchup` to have me read it all and confirm I've got it" (project mode) or "Anything else I should know about you before we go?" (global mode).
+7. **Report back and hand off.** Keep it short:
+
+   **Global mode:**
+   - One line: which sections were filled, where the file lives (`~/.claude/CLAUDE.md`).
+   - Note that memory is now primed — this identity will persist across sessions via swat-memory (if installed).
+   - Ask: "Anything else I should know about how you work before we get going?"
+
+   **Project mode:**
+   - One line: sections filled, path written (`./CLAUDE.md`), and which skills got auto-linked in the References section.
+   - Note any sections that were skipped (e.g., "skipped Domain Jargon — nothing unusual here").
+   - Offer next steps as a short menu of natural follow-ups, not a wall of options:
+     - "Run `/catchup` and I'll read everything end-to-end and tell you back what I understand."
+     - "Or just give me a task — I've got enough context to start."
+   - If this project has obvious next work (uncommitted changes, open TODOs visible in the repo, a stale README), mention *one* specifically as a starting point rather than generic "what should we do?".
 
 ## Special cases
 
-- **Global mode when `~/.claude/CLAUDE.md` already has rich content** (like Mike's existing file): default to augment — don't wipe his "Who I Am" or "Communication" sections. Ask which sections he wants to refresh.
+- **Global mode when `~/.claude/CLAUDE.md` already has rich content** (user already filled it in): default to augment — don't wipe "Who I Am" or "Communication" sections. Ask which sections they want to refresh.
 - **Project mode in a non-git dir**: still works, just skip any git-derived inference.
 - **Project mode in a dir with a parent CLAUDE.md** (e.g., a subfolder of a project): ask whether to create a new CLAUDE.md here or edit the parent.
 
