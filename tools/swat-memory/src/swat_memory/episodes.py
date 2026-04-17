@@ -22,8 +22,12 @@ def save(
         embeddings.encode_one(embeddings.truncate_for_embed(summary))
     )
     cur = conn.execute(
-        "INSERT INTO episodes(summary, importance, tags, embedding) VALUES (?, ?, ?, ?)",
-        (summary, importance, tags_json, blob),
+        "INSERT INTO episodes(summary, importance, tags) VALUES (?, ?, ?)",
+        (summary, importance, tags_json),
+    )
+    conn.execute(
+        "INSERT INTO episodes_vec(rowid, embedding) VALUES (?, ?)",
+        (cur.lastrowid, blob),
     )
     return {"id": cur.lastrowid}
 
@@ -67,25 +71,42 @@ def decay(conn: sqlite3.Connection) -> int:
 
 def prune(conn: sqlite3.Connection) -> int:
     """Delete episodes with importance below cutoff AND older than grace period."""
-    cur = conn.execute(
-        "DELETE FROM episodes WHERE importance < ? "
-        "AND julianday('now') - julianday(created_at) > ?",
-        (config.IMPORTANCE_CUTOFF, config.PRUNE_GRACE_DAYS),
-    )
-    return cur.rowcount
+    doomed = [
+        r["id"]
+        for r in conn.execute(
+            "SELECT id FROM episodes WHERE importance < ? "
+            "AND julianday('now') - julianday(created_at) > ?",
+            (config.IMPORTANCE_CUTOFF, config.PRUNE_GRACE_DAYS),
+        )
+    ]
+    for rowid in doomed:
+        conn.execute("DELETE FROM episodes_vec WHERE rowid = ?", (rowid,))
+        conn.execute("DELETE FROM episodes WHERE id = ?", (rowid,))
+    return len(doomed)
 
 
 def dedupe(conn: sqlite3.Connection) -> int:
-    """Merge near-duplicate episodes (cosine > DEDUPE_COSINE). Keeps higher-importance."""
+    """Merge near-duplicate episodes (cosine > DEDUPE_COSINE). Keeps higher-importance.
+    Reads embeddings back from episodes_vec rather than keeping a parallel BLOB column."""
     rows = all_rows(conn)
-    kept, matrix = embeddings.batch_rows_to_matrix(rows)
+    if len(rows) < 2:
+        return 0
+    ids = [r["id"] for r in rows]
+    vec_rows = conn.execute(
+        f"SELECT rowid, embedding FROM episodes_vec WHERE rowid IN ({','.join(['?'] * len(ids))})",
+        ids,
+    ).fetchall()
+    vec_by_id = {r["rowid"]: np.frombuffer(r["embedding"], dtype=np.float32) for r in vec_rows}
+    kept = [r for r in rows if r["id"] in vec_by_id]
     if len(kept) < 2:
         return 0
-    removed = 0
-    alive = [True] * len(kept)
+    matrix = np.stack([vec_by_id[r["id"]] for r in kept])
     norms = np.linalg.norm(matrix, axis=1, keepdims=True) + 1e-12
     normed = matrix / norms
     sims = normed @ normed.T
+
+    removed = 0
+    alive = [True] * len(kept)
     for i in range(len(kept)):
         if not alive[i]:
             continue
@@ -101,9 +122,10 @@ def dedupe(conn: sqlite3.Connection) -> int:
                 "UPDATE episodes SET tags = ?, last_seen = datetime('now') WHERE id = ?",
                 (json.dumps(merged_tags), keep["id"]),
             )
+            conn.execute("DELETE FROM episodes_vec WHERE rowid = ?", (drop["id"],))
             conn.execute("DELETE FROM episodes WHERE id = ?", (drop["id"],))
             alive[i if drop is a else j] = False
             removed += 1
             if drop is a:
-                break  # i is dead; move on
+                break
     return removed
