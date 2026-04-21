@@ -18,7 +18,7 @@ PRUNE_GRACE_DAYS = int(os.environ.get("SWAT_MEMORY_PRUNE_GRACE_DAYS", "14"))
 DEDUPE_COSINE = float(os.environ.get("SWAT_MEMORY_DEDUPE_COSINE", "0.95"))
 
 CONTENT_EMBED_MAX_CHARS = 2048
-SCHEMA_VERSION = "1"
+SCHEMA_VERSION = "2"
 
 FACT_TYPES = {"user", "feedback", "project", "reference"}
 ENTITY_TYPES = {"Person", "Project", "System", "Doc", "Unknown"}

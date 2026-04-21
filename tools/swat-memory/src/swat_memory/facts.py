@@ -11,6 +11,11 @@ def _hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+def _write_vec(conn: sqlite3.Connection, rowid: int, blob: bytes) -> None:
+    conn.execute("DELETE FROM facts_vec WHERE rowid = ?", (rowid,))
+    conn.execute("INSERT INTO facts_vec(rowid, embedding) VALUES (?, ?)", (rowid, blob))
+
+
 def save(
     conn: sqlite3.Connection,
     *,
@@ -43,10 +48,11 @@ def save(
     if existing is None:
         blob = _encode()
         cur = conn.execute(
-            "INSERT INTO facts(subject, content, type, domain, confidence, embedding, content_hash, source_path) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (subject, content, type, domain, confidence, blob, h, source_path),
+            "INSERT INTO facts(subject, content, type, domain, confidence, content_hash, source_path) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (subject, content, type, domain, confidence, h, source_path),
         )
+        _write_vec(conn, cur.lastrowid, blob)
         return {"id": cur.lastrowid, "created": True, "re_embedded": True}
 
     if existing["content_hash"] == h:
@@ -60,10 +66,11 @@ def save(
     blob = _encode()
     conn.execute(
         "UPDATE facts SET content = ?, domain = COALESCE(?, domain), confidence = ?, "
-        "embedding = ?, content_hash = ?, source_path = COALESCE(?, source_path), "
+        "content_hash = ?, source_path = COALESCE(?, source_path), "
         "updated_at = datetime('now') WHERE id = ?",
-        (content, domain, confidence, blob, h, source_path, existing["id"]),
+        (content, domain, confidence, h, source_path, existing["id"]),
     )
+    _write_vec(conn, existing["id"], blob)
     return {"id": existing["id"], "created": False, "re_embedded": True}
 
 

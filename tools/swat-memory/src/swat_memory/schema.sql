@@ -6,7 +6,6 @@ CREATE TABLE IF NOT EXISTS episodes (
   summary     TEXT    NOT NULL,
   importance  REAL    NOT NULL DEFAULT 5.0,
   tags        TEXT    NOT NULL DEFAULT '[]',
-  embedding   BLOB,
   created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
   last_seen   TEXT    NOT NULL DEFAULT (datetime('now')),
   last_decay  TEXT    NOT NULL DEFAULT (datetime('now'))
@@ -21,7 +20,6 @@ CREATE TABLE IF NOT EXISTS facts (
   type         TEXT    NOT NULL,
   domain       TEXT,
   confidence   REAL    NOT NULL DEFAULT 0.8,
-  embedding    BLOB,
   content_hash TEXT    NOT NULL,
   source_path  TEXT,
   created_at   TEXT    NOT NULL DEFAULT (datetime('now')),
@@ -56,4 +54,12 @@ CREATE INDEX IF NOT EXISTS idx_rel_to   ON relations(to_id,   rel_type);
 CREATE TABLE IF NOT EXISTS meta (
   key   TEXT PRIMARY KEY,
   value TEXT NOT NULL
+);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS facts_vec USING vec0(
+  embedding float[384] distance_metric=cosine
+);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS episodes_vec USING vec0(
+  embedding float[384] distance_metric=cosine
 );
