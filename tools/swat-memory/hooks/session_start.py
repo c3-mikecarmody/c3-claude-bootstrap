@@ -37,6 +37,8 @@ def _seed_query() -> str:
 
 
 def main() -> int:
+    if os.environ.get("SWAT_MEMORY_SKIP_HOOK"):
+        return 0
     query = _seed_query()
     if not query:
         return 0
