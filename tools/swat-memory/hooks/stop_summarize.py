@@ -4,6 +4,7 @@ persist an episode. Fails silently — hook must never block Claude Code's exit.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -78,6 +79,9 @@ def _read_transcript(path: Path) -> str:
 
 def _summarize(transcript_text: str) -> tuple[str, list[str]]:
     prompt = f"{SUMMARY_PROMPT}\n\nSESSION:\n{transcript_text}"
+    # Guard against recursion: the child `claude -p` inherits our settings.json,
+    # so without this env flag it would fire stop_summarize.py again on exit.
+    child_env = {**os.environ, "SWAT_MEMORY_SKIP_HOOK": "1"}
     try:
         out = subprocess.run(
             ["claude", "-p", prompt],
@@ -85,6 +89,7 @@ def _summarize(transcript_text: str) -> tuple[str, list[str]]:
             text=True,
             timeout=60,
             check=True,
+            env=child_env,
         ).stdout.strip()
     except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
         raise RuntimeError(f"claude -p failed: {e}") from e
@@ -101,6 +106,8 @@ def _summarize(transcript_text: str) -> tuple[str, list[str]]:
 
 
 def main() -> int:
+    if os.environ.get("SWAT_MEMORY_SKIP_HOOK"):
+        return 0
     try:
         payload = json.load(sys.stdin)
     except ValueError:

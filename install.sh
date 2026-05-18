@@ -129,8 +129,14 @@ mcp["swat-memory"] = {"command": py, "args": ["-m", "swat_memory"]}
 hooks = data.setdefault("hooks", {})
 for event, script in (("SessionStart", "session_start.py"), ("Stop", "stop_summarize.py")):
     entries = hooks.setdefault(event, [])
-    cmd = f"{root}/hooks/{script}"
-    # Remove any prior swat-memory entry so we don't accumulate duplicates
+    # Invoke via the venv's python explicitly; the hook scripts import
+    # swat_memory + sqlite_vec, which live only in the venv. Relying on the
+    # script's #!/usr/bin/env python3 shebang runs under system python and
+    # fails with ModuleNotFoundError: No module named 'sqlite_vec'.
+    cmd = f"{py} {root}/hooks/{script}"
+    # Remove any prior swat-memory entry so we don't accumulate duplicates.
+    # Match by script basename so legacy entries (that invoked the script
+    # directly without the venv python prefix) also get replaced on re-install.
     entries[:] = [e for e in entries if not any(
         h.get("command", "").endswith(script) for h in e.get("hooks", [])
     )]

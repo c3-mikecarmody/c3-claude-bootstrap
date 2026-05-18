@@ -35,13 +35,19 @@ Then add the following to `~/.claude/settings.json` (merge with existing blocks 
     "SessionStart": [
       {
         "matcher": "*",
-        "hooks": [{"type": "command", "command": "${SWAT_MEMORY_ROOT}/hooks/session_start.py"}]
+        "hooks": [{
+          "type": "command",
+          "command": "${SWAT_MEMORY_ROOT}/.venv/bin/python ${SWAT_MEMORY_ROOT}/hooks/session_start.py"
+        }]
       }
     ],
     "Stop": [
       {
         "matcher": "*",
-        "hooks": [{"type": "command", "command": "${SWAT_MEMORY_ROOT}/hooks/stop_summarize.py"}]
+        "hooks": [{
+          "type": "command",
+          "command": "${SWAT_MEMORY_ROOT}/.venv/bin/python ${SWAT_MEMORY_ROOT}/hooks/stop_summarize.py"
+        }]
       }
     ]
   }
